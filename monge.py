@@ -14,77 +14,6 @@ def d(*args):
 # the idea is we have functions f_1,...,f_n
 # we want to find two positions a and b, so sum min(f_i(a),f_i(b)) is minimized.
 
-
-# we try to move to the next value
-# advance only work for entire functions
-# we try to move to the next value
-# advance only work for entire functions
-def advance(bs, i, a, f1s, f2s, value, slope):
-    # print()
-    # print("i",i)
-    # print("value",value)
-    # print("slope",slope)
-    # print("good", f1s)
-    # print("failures",f2s)
-    # print()
-    if i >= len(bs):
-        return []
-    if i==0:
-        slope = sum([f.neg_infinity_slope for f in f1s])
-    # f1s and f2s are all lists, it has the property that
-
-    # first update the value to potentially correct one assuming no function is removed
-    if i >= 1:
-        value += (bs[i] - bs[i - 1]) * slope
-        #print("value change",(bs[i] - bs[i - 1]) * slope)
-    else:
-        value += sum([f.evaluate(bs[0]) for f in f1s])
-
-    #print("before change value", value)
-    # then update the slope to potentially correct one
-    for f in f1s:
-        if bs[i] in f.bs_delta:
-            slope += f.bs_delta[bs[i]]
-
-    # # however, we also need to remove certain issues
-    failure = -1
-    j=0
-    while j<len(f1s):
-    #for j in range(len(f1s)):
-        f = f1s[j]
-        #if bs[i] > a and f.evaluate(bs[i]) > f.evaluate(a):
-        if bs[i] > a and f.bound < bs[i]:
-            # print("ohno",bs[i],a,f.evaluate(bs[i]),f.evaluate(a))
-            # this means f(bs[i-1])<=a<f(bs[i])
-            # so we overcounted
-            value -= f.evaluate(bs[i])
-            value += f.evaluate(a)
-            slope -= f.slope(bs[i])
-            failure = j
-            j+=1
-        else:
-            break
-
-    #print("failuresaaaaaaaaa",failure)
-    # remove the failures
-    new_f2s = f1s[:failure + 1]
-    new_f1s = f1s[failure + 1:]
-
-    reasonable_output = []
-    if bs[i] >= a:
-        reasonable_output = [(value, i)]
-    return reasonable_output+advance(bs, i + 1, a, new_f1s, new_f2s, value, slope)
-
-def test_advance(fs,bs,a):
-    A = [(max(dagger_transform(f).evaluate(a), f.minimum()[0]), f) for f in fs]
-    #     # sort the function by the minimum point value
-    A.sort(key=lambda x:x[0])
-    funcs = [v for (u,v) in A]
-    #for f in funcs:
-    #    print(f.breakpoints, dagger_transform(f).evaluate(a), f.minimum()[0])
-    advance(bs, 0, a, funcs, [], 0.0, 0.0)
-    #print()
-
 def minimum_fix_a(fs, bs, a):
     # given a, we find for each function, which b would be the first
     # given a picewiselinear unimodal function, find the dagger transform
@@ -98,11 +27,49 @@ def minimum_fix_a(fs, bs, a):
     for (x,y) in A:
         y.bound = x
     f1s = [y for (x,y) in A]
-    #for f in f1s:
-#
-    #    #print(f.breakpoints, dagger_transform(f).evaluate(a), f.minimum()[0])
-    #    #dagger_transform(f).print()
-    results = advance(bs, 0, a, f1s, [], 0.0, 0.0)
+    value = 0.0
+    slope = 0.0
+    results = []
+    for i in range(len(bs)):
+        if i >= len(bs):
+            return []
+        if i == 0:
+            slope = sum([f.neg_infinity_slope for f in f1s])
+        # f1s and f2s are all lists, it has the property that
+
+        # first update the value to potentially correct one assuming no function is removed
+        if i >= 1:
+            value += (bs[i] - bs[i - 1]) * slope
+            # print("value change",(bs[i] - bs[i - 1]) * slope)
+        else:
+            value += sum([f.evaluate(bs[0]) for f in f1s])
+
+        # print("before change value", value)
+        # then update the slope to potentially correct one
+        for f in f1s:
+            if bs[i] in f.bs_delta:
+                slope += f.bs_delta[bs[i]]
+
+        # # however, we also need to remove certain issues
+        failure = -1
+        j = 0
+        while j < len(f1s):
+            f = f1s[j]
+            if bs[i] > a and f.bound < bs[i]:
+                # this means f(bs[i-1])<=a<f(bs[i])
+                # so we overcounted
+                value -= f.evaluate(bs[i])
+                value += f.evaluate(a)
+                slope -= f.slope(bs[i])
+                failure = j
+                j += 1
+            else:
+                break
+        new_f1s = f1s[failure + 1:]
+
+        f1s = new_f1s
+        if bs[i] >= a:
+            results.append((value, i))
 
     minv, minindex = min([(u, -v) for u, v in results])
 

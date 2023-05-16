@@ -155,7 +155,7 @@ def main():
     for i in range(3):
         S.append(random.sample(range(0, 5), 3))
 
-    for j in range(100):
+    for j in range(10):
         S = []# [[0, 2, 3], [1, 5, 0]]
         for i in range(10):
             S.append(random.sample(range(0, 9999), 11))
