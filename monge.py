@@ -2,7 +2,6 @@
 # the idea is to implement the data structure for monge matrix
 
 from pandas import *
-import numpy as np
 from bisect import bisect_left
 #from types import Any
 
@@ -41,12 +40,37 @@ def advance(bs, i, a, f1s, f2s, value, slope):
         if bs[i] in f.bs_delta:
             slope += f.bs_delta[bs[i]]
 
+    # naive remove failures
+    # failures = []
+    # nonfailures = []
+    #
+    # # however, we also need to remove certain issues
+    # #failure = -1
+    # for j in range(len(f1s)):
+    #     f = f1s[j]
+    #     if bs[i] > a and f.evaluate(bs[i]) > f.evaluate(a):
+    #         # print("ohno",bs[i],a,f.evaluate(bs[i]),f.evaluate(a))
+    #         # this means f(bs[i-1])<=a<f(bs[i])
+    #         # so we overcounted
+    #         value -= f.evaluate(bs[i])
+    #         value += f.evaluate(a)
+    #         slope -= f.slope(bs[i])
+    #         failures.append(f)
+    #     else:
+    #         nonfailures.append(f)
+    #
+    # new_f2s = failures
+    # new_f1s = nonfailures
+
+    #print("failuresaaaaaaaaa",failure)
+    # remove the failures
+    #new_f2s = f1s[:failure + 1]
+    #new_f1s = f1s[failure + 1:]
+
     # # however, we also need to remove certain issues
     failure = -1
-    j = 0
-    while j<len(f1s):
+    for j in range(len(f1s)):
         f = f1s[j]
-        #if bs[i] > a and bs[i]>f.bound: (STILL CAN'T REPLACE. WHY?)
         if bs[i] > a and f.evaluate(bs[i]) > f.evaluate(a):
             # print("ohno",bs[i],a,f.evaluate(bs[i]),f.evaluate(a))
             # this means f(bs[i-1])<=a<f(bs[i])
@@ -55,9 +79,6 @@ def advance(bs, i, a, f1s, f2s, value, slope):
             value += f.evaluate(a)
             slope -= f.slope(bs[i])
             failure = j
-            j+=1
-        else:
-            break
 
     #print("failuresaaaaaaaaa",failure)
     # remove the failures
@@ -67,32 +88,28 @@ def advance(bs, i, a, f1s, f2s, value, slope):
     reasonable_output = []
     if bs[i] >= a:
         reasonable_output = [(value, i)]
-    return advance(bs, i + 1, a, new_f1s, new_f2s, value, slope)+reasonable_output
+    return reasonable_output+advance(bs, i + 1, a, new_f1s, new_f2s, value, slope)
 
-# def test_advance(fs,bs,a):
-#     A = [(max(f.dagger().evaluate(a), f.minimum()[0]), f) for f in fs]
-#     #     # sort the function by the minimum point value
-#     A.sort(key=lambda x:x[0])
-#     for u,v in A:
-#         v.bound = u
-#     funcs = [v for (u,v) in A]
-#     #for f in funcs:
-#     #    print(f.breakpoints, dagger_transform(f).evaluate(a), f.minimum()[0])
-#     advance(bs, 0, a, funcs, [], 0.0, 0.0)
-#     #print()
+def test_advance(fs,bs,a):
+    A = [(max(dagger_transform(f).evaluate(a), f.minimum()[0]), f) for f in fs]
+    #     # sort the function by the minimum point value
+    A.sort(key=lambda x:x[0])
+    funcs = [v for (u,v) in A]
+    #for f in funcs:
+    #    print(f.breakpoints, dagger_transform(f).evaluate(a), f.minimum()[0])
+    advance(bs, 0, a, funcs, [], 0.0, 0.0)
+    #print()
 
 def minimum_fix_a(fs, bs, a):
     # given a, we find for each function, which b would be the first
     # given a picewiselinear unimodal function, find the dagger transform
     A: list[tuple[float, PiecewiseLinearUnimodal]]
-    A = [(max(f.dagger().evaluate(a), f.minimum()[0]), f) for f in fs]
+    A = [(max(dagger_transform(f).evaluate(a), f.minimum()[0]), f) for f in fs]
     # sort the function by the minimum point value
     A.sort(key=lambda x:x[0])
     #for i in range(len(fs)):
     #    print("dagger transform evaluated on a", a, A[i][0])
     # we need the initial value and slope
-    for u, v in A:
-        v.bound = u
     f1s = [y for (x,y) in A]
     #for f in f1s:
 #
@@ -104,16 +121,40 @@ def minimum_fix_a(fs, bs, a):
 
     return minv, bs[-minindex]
 
+
+# should return the optimum value with elements in as and bs
+# def optimum(fs, a_s, bs):
+#     # base case, when a_s is too small.
+#     if len(a_s) <= 2:
+#         result = []
+#         for i in range(len(a_s)):
+#             mvi, mbi, _, _ = minimum_fix_a(fs, bs, a_s[i])
+#             result.append((mvi, a_s[i], mbi))
+#         return min(result)
+#
+#     # the idea is to do this recursive approach
+#     ma = a_s[len(a_s) / 2]
+#     mv, mb, left, right = minimum_fix_a(fs, bs, ma)
+#
+#     f_left = SumOfPiecewiseLinearUnimodal(left)
+#     f_right = SumOfPiecewiseLinearUnimodal(right)
+#
+#     left_a_s = [x for x in a_s if x in f_left.bs and x<len(a_s) / 2]
+#     right_a_s = [x for x in a_s if x in f_right.bs and x>len(a_s) / 2]
+#
+#     left_bs = [x for x in bs if x in f_left.bs and x<=mb]
+#     right_bs = [x for x in bs if x in f_right.bs and x>=mb]
+#
+#     return min([(mv, ma, mb), optimum(left, left_a_s, left_bs), optimum(right, right_a_s, right_bs)])
+
 class SumOfPiecewiseLinearUnimodal:
     # list of functions
     # list of breakpoints
     def __init__(self, fs):
         self.fs = fs
-        self.cache_evaluate = dict()
         self.compute_breakpoints()
         self.neg_infinity_slope = sum([f.neg_infinity_slope for f in fs])
         self.start_value = self.evaluate(self.bs[0])
-
 
     # return a PiecewiseLinearUnimodal function
     def flattern(self):
@@ -224,9 +265,7 @@ class SumOfPiecewiseLinearUnimodal:
         return sum([min(f.evaluate(x),f.evaluate(y)) for f in self.fs])
 
     def evaluate(self, x):
-        if x not in self.cache_evaluate:
-            self.cache_evaluate[x] = sum([f.evaluate(x) for f in self.fs])
-        return self.cache_evaluate[x]
+        return sum([f.evaluate(x) for f in self.fs])
     #def optimum(self):
     #    return optimum(self.fs, self.bs, self.bs)
 
@@ -248,54 +287,11 @@ class PiecewiseLinearUnimodal:
     def __init__(self, start_value, bs, delta, neg_infinity_slope=0.0):
         self.breakpoints = bs  # the list of breakpoints
         self.delta = delta  # change in slope
-        self.slope_array = []
-        self.value = []
         self.start_value = start_value  # start value is f(b[0]).
         self.neg_infinity_slope = neg_infinity_slope  # slope at negative infinity
         self.bs_delta = dict()
-        self.bs_index = dict()
         for i in range(len(bs)):
             self.bs_delta[bs[i]] = delta[i]
-            self.bs_index[bs[i]] = i
-        self.minx = None
-        self.minv = None
-        self.stored_dagger = None
-        self.cache_evaluate = dict()
-        self.__build_values()
-
-
-        # build numpy array for breakpoints
-        self.lookup = np.array(self.breakpoints)
-
-        # self.bound = None
-
-    # find the smallest breakpoint
-    def prev_index(self, x):
-        return np.searchsorted(self.lookup,x,side='left')
-
-    def __build_values(self):
-        bs = self.breakpoints
-        delta = self.delta
-        n = len(bs)
-        current_value = self.start_value
-        current_slope = self.neg_infinity_slope
-        self.minx = None
-        self.minv = float('inf')
-        self.slope_array.append(current_slope)
-        for i in range(len(bs)):
-            current_value += (bs[i] - bs[max(i - 1, 0)]) * current_slope
-            current_slope += delta[i]
-            self.value.append(current_value)
-            self.slope_array.append(current_slope)
-            if current_value<self.minv:
-                self.minx = bs[i]
-                self.minv = current_value
-
-
-    def dagger(self):
-        if not self.stored_dagger:
-            self.stored_dagger = dagger_transform(self)
-        return self.stored_dagger
 
     def is_breakpoint(self, b):
         return b in self.bs_delta
@@ -305,30 +301,23 @@ class PiecewiseLinearUnimodal:
         return 0.0
 
     def evaluate(self, x):
-        if x in self.bs_index:
-            return self.value[self.bs_index[x]]
-
-        if x not in self.cache_evaluate:
-            bs = self.breakpoints
-            delta = self.delta
-            n = len(bs)
-            current_value = self.start_value
-            current_slope = self.neg_infinity_slope
-            for i in range(len(bs)):
-                if x < bs[i]:
-                    current_value += (x - bs[max(i - 1, 0)]) * current_slope
-                    return current_value
-                else:
-                    current_value += (bs[i] - bs[max(i - 1, 0)]) * current_slope
-                    current_slope += delta[i]
-            if x >= bs[len(bs) - 1]:
-                current_value += (x - bs[n - 1]) * current_slope
-            self.cache_evaluate[x] = current_value
-        return self.cache_evaluate[x]
+        bs = self.breakpoints
+        delta = self.delta
+        n = len(bs)
+        current_value = self.start_value
+        current_slope = self.neg_infinity_slope
+        for i in range(len(bs)):
+            if x < bs[i]:
+                current_value += (x - bs[max(i - 1, 0)]) * current_slope
+                return current_value
+            else:
+                current_value += (bs[i] - bs[max(i - 1, 0)]) * current_slope
+                current_slope += delta[i]
+        if x >= bs[len(bs) - 1]:
+            current_value += (x - bs[n - 1]) * current_slope
+        return current_value
 
     def slope(self, x):
-        if x in self.bs_index:
-            return self.slope_array[self.bs_index[x]+1]
         bs = self.breakpoints
         delta = self.delta
         n = len(bs)
@@ -351,17 +340,13 @@ class PiecewiseLinearUnimodal:
 
     # the position where minimum happens
     def minimum(self):
-        #if True:
-        if not self.minx:
-            minx = self.breakpoints[0]
-            minv = self.start_value
-            for b in self.breakpoints:
-                if self.evaluate(b) < minv:
-                    minv = self.evaluate(b)
-                    minx = b
-            self.minx = minx
-            self.minv = minv
-        return self.minx, self.minv
+        minx = self.breakpoints[0]
+        minv = self.start_value
+        for b in self.breakpoints:
+            if self.evaluate(b) < minv:
+                minv = self.evaluate(b)
+                minx = b
+        return minx, minv
 
     def print(self):
         print("bs", self.breakpoints)
@@ -420,8 +405,11 @@ def dagger_transform(f):
         breakpoints = [a] + breakpoints
 
     breakpoints = [breakpoints[0] - 1.0] + breakpoints
+
+    #print(breakpoints)
     i = 0
     j = len(breakpoints) - 1
+    #print(i, j)
     bs = []
     slope = []
     while i != j:
@@ -445,12 +433,21 @@ def dagger_transform(f):
                 slope.append(-1.0)
             j -= 1
         else:  # a > b
+            # off by 1?
+            #print("oh slope",breakpoints[j], f.slope(breakpoints[j]))
             if f.slope(breakpoints[j]) != 0:
                 #print("fa,fb",fa,fb)
                 b = breakpoints[j] + (fa - fb) / f.slope(breakpoints[j])
                 #print("b and sum",b,breakpoints[j],(fa - fb) / f.slope(breakpoints[j]))
             else:
                 b = breakpoints[j]
+            # we need to find the correct b
+            #print("oh slope",breakpoints[j-1], f.slope(breakpoints[j - 1]))
+            #if f.slope(breakpoints[j - 1]) != 0:
+            #    b = breakpoints[j - 1] + (fb - f.evaluate(breakpoints[j - 1])) / f.slope(breakpoints[j - 1])
+            #else:
+            #    b = breakpoints[j - 1]
+            # compute the correct b
             if not bs:
                 start_value = b
             bs.append(breakpoints[i])
@@ -460,7 +457,16 @@ def dagger_transform(f):
             else:
                 slope.append(-1.0)
             i += 1
+        #("new bs",bs)
+        #print("new slope",slope)
+    #print("BS")
+    #print(bs)
+    # start_value is what happens at first point, which is the second point.
+    #print("so what is the slope man", bs[1:], slope)
+
+    #print("so what is the delta man", bs[1:], slope_to_slope_difference(slope))
     bs, delta = simplify(bs[1:],slope_to_slope_difference(slope))
+    #print("so what is the simplified delta man", bs, delta)
     return PiecewiseLinearUnimodal(start_value, bs, delta, slope[0])
 
 
@@ -474,6 +480,7 @@ def simplify(bs,delta):
             new_bs.append(bs[i])
             new_delta.append(delta[i])
     return new_bs, new_delta
+
 
 def median_func(list_of_medians):
     return SumOfPiecewiseLinearUnimodal([median_to_piecewise_linear(xs) for xs in list_of_medians])
