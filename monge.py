@@ -3,7 +3,7 @@
 
 from pandas import *
 from bisect import bisect_left
-
+import numpy as np
 debug = False
 
 
@@ -83,7 +83,10 @@ class SumOfPiecewiseLinearUnimodal:
         self.fs = fs
         self.compute_breakpoints()
         self.neg_infinity_slope = sum([f.neg_infinity_slope for f in fs])
+        self.cache_evaluate = dict()
         self.start_value = self.evaluate(self.bs[0])
+        self.bs_set = None
+
 
     # return a PiecewiseLinearUnimodal function
     def flattern(self):
@@ -105,6 +108,7 @@ class SumOfPiecewiseLinearUnimodal:
                 breakpoints[x].append(f)
         self.has_breakpoint = breakpoints
         self.bs = sorted(list(breakpoints.keys()))
+        self.bs_set = set(self.bs)
 
     def optimum(self, a_s, bs):
         #print("running optimum!",a_s,bs)
@@ -178,7 +182,9 @@ class SumOfPiecewiseLinearUnimodal:
         return sum([min(f.evaluate(x),f.evaluate(y)) for f in self.fs])
 
     def evaluate(self, x):
-        return sum([f.evaluate(x) for f in self.fs])
+        if x not in self.cache_evaluate:
+            self.cache_evaluate[x] = sum([f.evaluate(x) for f in self.fs])
+        return self.cache_evaluate[x]
 
     def __str__(self):
         s = ""
@@ -198,11 +204,51 @@ class PiecewiseLinearUnimodal:
     def __init__(self, start_value, bs, delta, neg_infinity_slope=0.0):
         self.breakpoints = bs  # the list of breakpoints
         self.delta = delta  # change in slope
+        self.slope_array = []
+        self.value = []
         self.start_value = start_value  # start value is f(b[0]).
         self.neg_infinity_slope = neg_infinity_slope  # slope at negative infinity
         self.bs_delta = dict()
+        self.bs_index = dict()
         for i in range(len(bs)):
             self.bs_delta[bs[i]] = delta[i]
+            self.bs_index[bs[i]] = i
+        self.minx = None
+        self.minv = None
+        self.stored_dagger = None
+        self.cache_evaluate = dict()
+        self.__build_values()
+        # build numpy array for breakpoints
+        self.lookup = np.array(self.breakpoints)
+
+        # self.bound = None
+    # find the smallest breakpoint
+    def prev_index(self, x):
+        return np.searchsorted(self.lookup,x,side='left')
+
+    def __build_values(self):
+        bs = self.breakpoints
+        delta = self.delta
+        n = len(bs)
+        current_value = self.start_value
+        current_slope = self.neg_infinity_slope
+        self.minx = None
+        self.minv = float('inf')
+        self.slope_array.append(current_slope)
+        for i in range(len(bs)):
+            current_value += (bs[i] - bs[max(i - 1, 0)]) * current_slope
+            current_slope += delta[i]
+            self.value.append(current_value)
+            self.slope_array.append(current_slope)
+            if current_value<self.minv:
+                self.minx = bs[i]
+                self.minv = current_value
+        #self.slope_array = np.array(self.slope_array)
+        #self.value = np.array(self.value)
+    def dagger(self):
+        if not self.stored_dagger:
+            self.stored_dagger = dagger_transform(self)
+        return self.stored_dagger
 
     def is_breakpoint(self, b):
         return b in self.bs_delta
@@ -212,34 +258,24 @@ class PiecewiseLinearUnimodal:
         return 0.0
 
     def evaluate(self, x):
+        if x in self.bs_index:
+            return self.value[self.bs_index[x]]
+        t = self.prev_index(x)-1
         bs = self.breakpoints
-        delta = self.delta
-        n = len(bs)
-        current_value = self.start_value
         current_slope = self.neg_infinity_slope
-        for i in range(len(bs)):
-            if x < bs[i]:
-                current_value += (x - bs[max(i - 1, 0)]) * current_slope
-                return current_value
-            else:
-                current_value += (bs[i] - bs[max(i - 1, 0)]) * current_slope
-                current_slope += delta[i]
-        if x >= bs[len(bs) - 1]:
-            current_value += (x - bs[n - 1]) * current_slope
-        return current_value
+        if t < 0:
+            current_value = self.start_value + (x - bs[0]) * current_slope
+            return current_value
+        return self.value[t] + (x - self.breakpoints[t]) * self.slope_array[t + 1]
 
     def slope(self, x):
-        bs = self.breakpoints
-        delta = self.delta
-        n = len(bs)
-        current_slope = self.neg_infinity_slope
-        for i in range(len(bs)):
-            if x < bs[i]:
-                return current_slope
-            else:
-                current_slope += delta[i]
-        return current_slope
-
+        if x in self.bs_index:
+            return self.slope_array[self.bs_index[x]+1]
+        t = self.prev_index(x)-1
+        return self.slope_array[t + 1]
+        #return self.slope_known_prev_index(t)
+    def slope_known_prev_index(self,t):
+        return self.slope_array[t+1]
     def slopes(self):
         slopes = [self.neg_infinity_slope]
         for d in self.delta:
@@ -251,13 +287,7 @@ class PiecewiseLinearUnimodal:
 
     # the position where minimum happens
     def minimum(self):
-        minx = self.breakpoints[0]
-        minv = self.start_value
-        for b in self.breakpoints:
-            if self.evaluate(b) < minv:
-                minv = self.evaluate(b)
-                minx = b
-        return minx, minv
+        return self.minx, self.minv
 
     def print(self):
         print("bs", self.breakpoints)
