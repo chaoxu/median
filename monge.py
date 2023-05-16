@@ -3,7 +3,6 @@
 
 from pandas import *
 from bisect import bisect_left
-#from types import Any
 
 debug = False
 
@@ -47,38 +46,12 @@ def advance(bs, i, a, f1s, f2s, value, slope):
         if bs[i] in f.bs_delta:
             slope += f.bs_delta[bs[i]]
 
-    # naive remove failures
-    # failures = []
-    # nonfailures = []
-    #
-    # # however, we also need to remove certain issues
-    # #failure = -1
-    # for j in range(len(f1s)):
-    #     f = f1s[j]
-    #     if bs[i] > a and f.evaluate(bs[i]) > f.evaluate(a):
-    #         # print("ohno",bs[i],a,f.evaluate(bs[i]),f.evaluate(a))
-    #         # this means f(bs[i-1])<=a<f(bs[i])
-    #         # so we overcounted
-    #         value -= f.evaluate(bs[i])
-    #         value += f.evaluate(a)
-    #         slope -= f.slope(bs[i])
-    #         failures.append(f)
-    #     else:
-    #         nonfailures.append(f)
-    #
-    # new_f2s = failures
-    # new_f1s = nonfailures
-
-    #print("failuresaaaaaaaaa",failure)
-    # remove the failures
-    #new_f2s = f1s[:failure + 1]
-    #new_f1s = f1s[failure + 1:]
-
     # # however, we also need to remove certain issues
     failure = -1
     for j in range(len(f1s)):
         f = f1s[j]
-        if bs[i] > a and f.evaluate(bs[i]) > f.evaluate(a):
+        #if bs[i] > a and f.evaluate(bs[i]) > f.evaluate(a):
+        if bs[i] > a and f.bound < bs[i]:
             # print("ohno",bs[i],a,f.evaluate(bs[i]),f.evaluate(a))
             # this means f(bs[i-1])<=a<f(bs[i])
             # so we overcounted
@@ -117,6 +90,8 @@ def minimum_fix_a(fs, bs, a):
     #for i in range(len(fs)):
     #    print("dagger transform evaluated on a", a, A[i][0])
     # we need the initial value and slope
+    for (x,y) in A:
+        y.bound = x
     f1s = [y for (x,y) in A]
     #for f in f1s:
 #
@@ -128,31 +103,6 @@ def minimum_fix_a(fs, bs, a):
 
     return minv, bs[-minindex]
 
-
-# should return the optimum value with elements in as and bs
-# def optimum(fs, a_s, bs):
-#     # base case, when a_s is too small.
-#     if len(a_s) <= 2:
-#         result = []
-#         for i in range(len(a_s)):
-#             mvi, mbi, _, _ = minimum_fix_a(fs, bs, a_s[i])
-#             result.append((mvi, a_s[i], mbi))
-#         return min(result)
-#
-#     # the idea is to do this recursive approach
-#     ma = a_s[len(a_s) / 2]
-#     mv, mb, left, right = minimum_fix_a(fs, bs, ma)
-#
-#     f_left = SumOfPiecewiseLinearUnimodal(left)
-#     f_right = SumOfPiecewiseLinearUnimodal(right)
-#
-#     left_a_s = [x for x in a_s if x in f_left.bs and x<len(a_s) / 2]
-#     right_a_s = [x for x in a_s if x in f_right.bs and x>len(a_s) / 2]
-#
-#     left_bs = [x for x in bs if x in f_left.bs and x<=mb]
-#     right_bs = [x for x in bs if x in f_right.bs and x>=mb]
-#
-#     return min([(mv, ma, mb), optimum(left, left_a_s, left_bs), optimum(right, right_a_s, right_bs)])
 
 class SumOfPiecewiseLinearUnimodal:
     # list of functions
@@ -191,10 +141,6 @@ class SumOfPiecewiseLinearUnimodal:
             result = [(float('inf'), 0, 0)] # make sure something reasonble when empty
             for i in range(len(a_s)):
                 mvi, mbi = minimum_fix_a(self.fs, bs, a_s[i])
-                #mvi, mbi = self.naive_minimum_fix_a(bs, a_s[i])
-
-                #assert (mvi == mvi2)
-                #assert (mbi == mbi2)
                 result.append((mvi, a_s[i], mbi))
             return min(result)
 
@@ -202,12 +148,6 @@ class SumOfPiecewiseLinearUnimodal:
         mid = len(a_s) // 2
         ma = a_s[mid]
         mv, mb = minimum_fix_a(self.fs, bs, ma)
-        #mv, mb = self.naive_minimum_fix_a(bs, ma)
-        #if (mv != mv2 or mb != mb2):
-        #    print("different:",mv,mv2,mb,mb2)
-        #    print(self.fs)
-        #    print("bs",bs)
-        #    print("a",ma)
         left = []
         right = []
         for f in self.fs:
@@ -216,8 +156,6 @@ class SumOfPiecewiseLinearUnimodal:
             else:
                 right.append(f)
 
-        #print(left, left2)
-        #print(right, right2)
         # two cases, in the left, we still need to show what to do with right functions
         new_left = left
         new_right = right
@@ -235,7 +173,7 @@ class SumOfPiecewiseLinearUnimodal:
             f_left = SumOfPiecewiseLinearUnimodal(left)
             left_a_s = [x for x in a_s if x in f_left.bs and x < a_s[mid]]
             left_bs = [x for x in bs if x in f_left.bs and x <= mb]
-            cases.append(f_left.optimum(left_a_s, bs))
+            cases.append(f_left.optimum(left_a_s, left_bs))
         # what about right?
         if right:
             f_right = SumOfPiecewiseLinearUnimodal(right)
@@ -245,7 +183,6 @@ class SumOfPiecewiseLinearUnimodal:
         return min(cases)
 
     def naive_optimum(self, a_s, bs):
-        # print("asbs", a_s,bs)
         minimum = float('inf')
         for x in a_s:
             for y in bs:
@@ -256,8 +193,6 @@ class SumOfPiecewiseLinearUnimodal:
         return minimum, ma, mb
 
     def naive_minimum_fix_a(self, bs, a):
-        #print("naive_fix",a)
-        #self.print_table()
         minv = self.min_evaluate(a, a)
         minindex = a
         for b in bs:
@@ -265,7 +200,6 @@ class SumOfPiecewiseLinearUnimodal:
                 if self.min_evaluate(a, b)<=minv:
                     minv = min(self.min_evaluate(a, b),minv)
                     minindex = b
-        #print(minv, minindex)
         return minv, minindex
 
     def min_evaluate(self, x, y):
@@ -273,8 +207,6 @@ class SumOfPiecewiseLinearUnimodal:
 
     def evaluate(self, x):
         return sum([f.evaluate(x) for f in self.fs])
-    #def optimum(self):
-    #    return optimum(self.fs, self.bs, self.bs)
 
     def __str__(self):
         s = ""
