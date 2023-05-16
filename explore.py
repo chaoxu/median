@@ -11,17 +11,19 @@ from monge import *
 
 # answer should be 22
 
-S = [[4, 1, 6, 7], [1, 3, 4, 0], [1, 0, 5, 2]]
+S = [[2, 3, 4], [0, 1, 8], [5, 6, 7]]
 #median_solver(S)
 fs = median_func(S)
 
 
 fs.print_table()
-#fs.optimum(fs.bs,fs.bs)
-#print("naive",fs.naive_minimum_fix_a(fs.bs,1))
+#print(fs.optimum(fs.bs,fs.bs))
+#print(fs.naive_optimum(fs.bs,fs.bs))
+#print(minimum_fix_a(fs.fs,fs.bs,1))
+#print(fs.naive_minimum_fix_a(fs.bs,1))
 
 f = fs.fs[0]
-
+#for f in fs.fs:
 f.print()
 df = dagger_transform(f)
 df.print()

@@ -155,10 +155,11 @@ def main():
     for i in range(3):
         S.append(random.sample(range(0, 5), 3))
 
-    for j in range(10):
-        S = []
+    for j in range(1000):
+        S = []# [[0, 2, 3], [1, 5, 0]]
         for i in range(10):
-            S.append(random.sample(range(0, 99999), 11))
+            S.append(random.sample(range(0, 9999), 11))
+        median_solver(S)
         if smawk_base_solution(S) != median_solver(S):
             print(smawk_base_solution(S))
             print(median_solver(S))

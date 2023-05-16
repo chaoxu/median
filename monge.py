@@ -5,6 +5,13 @@ from pandas import *
 from bisect import bisect_left
 #from types import Any
 
+debug = False
+
+
+def d(*args):
+    if debug:
+        print(*args)
+
 # the idea is we have functions f_1,...,f_n
 # we want to find two positions a and b, so sum min(f_i(a),f_i(b)) is minimized.
 
@@ -398,7 +405,7 @@ def dagger_transform(f):
     # we should always make sure we start with a
     fa = f.evaluate(f.breakpoints[0])
     fb = f.evaluate(f.breakpoints[-1])
-    #print(breakpoints)
+    d("breakpoints",breakpoints)
     if fa < fb:
         # compute the correct a
         a = f.breakpoints[0]-(f.start_value - fb)/f.neg_infinity_slope
@@ -406,24 +413,26 @@ def dagger_transform(f):
 
     breakpoints = [breakpoints[0] - 1.0] + breakpoints
 
-    #print(breakpoints)
+    d("breakpoints2",breakpoints)
     i = 0
     j = len(breakpoints) - 1
     #print(i, j)
     bs = []
     slope = []
-    while i != j:
+    start_value = None
+    while i < j:
         fa = f.evaluate(breakpoints[i])
         fb = f.evaluate(breakpoints[j])
 
-        #print("a,b,f(a),f(b):",i,j,breakpoints[i],breakpoints[j],fa,fb)
-        if fa <= fb:
+        d("a,b,f(a),f(b):",i,j,breakpoints[i],breakpoints[j],fa,fb)
+        if fa < fb:
+            d("fa<fb")
             # we need to find the correct a
             if f.slope(breakpoints[i - 1])!=0:
                 a = breakpoints[i - 1] + (fb - f.evaluate(breakpoints[i - 1])) / f.slope(breakpoints[i - 1])
             else:
                 a = breakpoints[i - 1]
-            if not bs:
+            if len(bs)==1:
                 start_value = breakpoints[j]
             # compute the correct a
             bs.append(a)
@@ -432,7 +441,20 @@ def dagger_transform(f):
             else:
                 slope.append(-1.0)
             j -= 1
-        else:  # a > b
+        elif fa == fb:
+            a = breakpoints[i]
+            if f.slope(breakpoints[j - 1]) != 0:
+                slope.append(f.slope(a)/f.slope(breakpoints[j - 1]))
+            else:
+                slope.append(-1.0)
+            if len(bs)==1:
+                start_value = breakpoints[j]
+            bs.append(breakpoints[i])
+            i += 1
+            j -= 1
+        elif fa > fb:
+            d("fa>fb")
+            # a > b
             # off by 1?
             #print("oh slope",breakpoints[j], f.slope(breakpoints[j]))
             if f.slope(breakpoints[j]) != 0:
@@ -442,13 +464,8 @@ def dagger_transform(f):
             else:
                 b = breakpoints[j]
             # we need to find the correct b
-            #print("oh slope",breakpoints[j-1], f.slope(breakpoints[j - 1]))
-            #if f.slope(breakpoints[j - 1]) != 0:
-            #    b = breakpoints[j - 1] + (fb - f.evaluate(breakpoints[j - 1])) / f.slope(breakpoints[j - 1])
-            #else:
-            #    b = breakpoints[j - 1]
-            # compute the correct b
-            if not bs:
+            if len(bs)==1:
+                # dummy
                 start_value = b
             bs.append(breakpoints[i])
 
@@ -457,13 +474,20 @@ def dagger_transform(f):
             else:
                 slope.append(-1.0)
             i += 1
-        #("new bs",bs)
-        #print("new slope",slope)
+        d("new bs",bs)
+        d("new slope",slope)
+        if start_value:
+            d(start_value)
     #print("BS")
     #print(bs)
     # start_value is what happens at first point, which is the second point.
     #print("so what is the slope man", bs[1:], slope)
 
+
+
+    d("final bs", bs)
+    d("final slope", slope)
+    d("slope_to_slope_difference", slope_to_slope_difference(slope))
     #print("so what is the delta man", bs[1:], slope_to_slope_difference(slope))
     bs, delta = simplify(bs[1:],slope_to_slope_difference(slope))
     #print("so what is the simplified delta man", bs, delta)
@@ -479,6 +503,7 @@ def simplify(bs,delta):
         if delta[i] != 0:
             new_bs.append(bs[i])
             new_delta.append(delta[i])
+
     return new_bs, new_delta
 
 

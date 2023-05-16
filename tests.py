@@ -39,7 +39,36 @@ class TestStringMethods(unittest.TestCase):
 
         g = f.flattern()
         for x in f.bs:
-            assert (f.evaluate(x), g.evaluate(x))
+            assert (f.evaluate(x)==g.evaluate(x))
+
+    def test_median(self):
+        S = [[2, 3, 4], [0, 1, 8], [5, 6, 7]]
+        assert (monge.median_solver(S) == 14.0)
+
+    def test_dagger_transform1(self):
+
+        S = [0, 1, 8]
+        f = monge.median_to_piecewise_linear(S)
+        df = monge.dagger_transform(f)
+        assert (df.breakpoints == [-2.0, 0])
+        assert (abs(df.delta[0] + 2.0)<0.000000001)
+        assert (abs(df.delta[1] - 2.0)<0.000000001)
+        assert (df.start_value == 8)
+        assert (df.neg_infinity_slope == -1.0)
+
+    def test_dagger_transform2(self):
+        S = [2, 3, 4]
+        f = monge.median_to_piecewise_linear(S)
+        df = monge.dagger_transform(f)
+        assert (df.breakpoints == [2.0])
+        assert (abs(df.delta[0]-0)<0.000000001)
+        assert (df.start_value == 4)
+        assert (df.neg_infinity_slope == -1.0)
+
+
+
+
+
 
 if __name__ == '__main__':
     unittest.main()
