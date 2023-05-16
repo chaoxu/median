@@ -48,7 +48,9 @@ def advance(bs, i, a, f1s, f2s, value, slope):
 
     # # however, we also need to remove certain issues
     failure = -1
-    for j in range(len(f1s)):
+    j=0
+    while j<len(f1s):
+    #for j in range(len(f1s)):
         f = f1s[j]
         #if bs[i] > a and f.evaluate(bs[i]) > f.evaluate(a):
         if bs[i] > a and f.bound < bs[i]:
@@ -59,6 +61,9 @@ def advance(bs, i, a, f1s, f2s, value, slope):
             value += f.evaluate(a)
             slope -= f.slope(bs[i])
             failure = j
+            j+=1
+        else:
+            break
 
     #print("failuresaaaaaaaaa",failure)
     # remove the failures
