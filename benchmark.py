@@ -150,16 +150,27 @@ def benchmark(S, cases):
 def main():
     #S = [[747, 446], [17, 749], [997, 312]]
     S=[[0,1,3,4,5],[0,1,2,3,4]]
+    #S=[[4, 1, 6, 7], [1, 3, 4, 0], [1, 0, 5, 2]]
     #S = [[6, 6,9,8,1924, 6], [11, 11,3,5,3,19], [14, 0,614,0,6, 6], [19, 19, 19],[19, 33, 19],[100000, 19, 19],[19, 62, 19]]
-    for i in range(20):
-        S.append(random.sample(range(0, 9999), 11))
+    for i in range(3):
+        S.append(random.sample(range(0, 5), 3))
+
+    for j in range(10):
+        S = []
+        for i in range(10):
+            S.append(random.sample(range(0, 99999), 11))
+        if smawk_base_solution(S) != median_solver(S):
+            print(smawk_base_solution(S))
+            print(median_solver(S))
+            print(S)
+            exit(0)
     benchmark(S, [
         #['brute_force', brute_force_solution],
         ['smawk', smawk_base_solution],
         #['naive', naive_solutons],
         #['naive_median_solver', naive_median_solver],
         ['median_solver', median_solver],
-        ['sklearn', sklearn_solution], # heuristics
+        #['sklearn', sklearn_solution], # heuristics
         ['median', median_heuristic]
     ])
     print(S)

@@ -9,14 +9,28 @@ from monge import *
 #, [14, 614, 6], [19, 19, 19],[19, 33, 19],[100000, 19, 19],[19, 62, 19]]
 
 
-S = [[0,1,3,4,5],[0,1,2,3,4]]
+# answer should be 22
+
+S = [[4, 1, 6, 7], [1, 3, 4, 0], [1, 0, 5, 2]]
 #median_solver(S)
 fs = median_func(S)
-fs.print_table()
-fs.optimum(fs.bs,fs.bs)
 
-print(minimum_fix_a(fs.fs, fs.bs, 2))
-print(fs.naive_minimum_fix_a(fs.bs, 2))
+
+fs.print_table()
+#fs.optimum(fs.bs,fs.bs)
+#print("naive",fs.naive_minimum_fix_a(fs.bs,1))
+
+f = fs.fs[0]
+
+f.print()
+df = dagger_transform(f)
+df.print()
+#    print(df.evaluate(1))
+
+#print(minimum_fix_a(fs.fs, fs.bs, 1))
+
+
+#print(fs.naive_minimum_fix_a(fs.bs, 1))
 
 #for a in range(6):
 #    print()

@@ -40,37 +40,12 @@ def advance(bs, i, a, f1s, f2s, value, slope):
         if bs[i] in f.bs_delta:
             slope += f.bs_delta[bs[i]]
 
-
-
     # naive remove failures
-    failures = []
-    nonfailures = []
-
-    # however, we also need to remove certain issues
-    #failure = -1
-    for j in range(len(f1s)):
-        f = f1s[j]
-        if bs[i] > a and f.evaluate(bs[i]) > f.evaluate(a):
-            # print("ohno",bs[i],a,f.evaluate(bs[i]),f.evaluate(a))
-            # this means f(bs[i-1])<=a<f(bs[i])
-            # so we overcounted
-            value -= f.evaluate(bs[i])
-            value += f.evaluate(a)
-            slope -= f.slope(bs[i])
-            failures.append(f)
-        else:
-            nonfailures.append(f)
-
-    new_f2s = failures
-    new_f1s = nonfailures
-
-    #print("failuresaaaaaaaaa",failure)
-    # remove the failures
-    #new_f2s = f1s[:failure + 1]
-    #new_f1s = f1s[failure + 1:]
-
+    # failures = []
+    # nonfailures = []
+    #
     # # however, we also need to remove certain issues
-    # failure = -1
+    # #failure = -1
     # for j in range(len(f1s)):
     #     f = f1s[j]
     #     if bs[i] > a and f.evaluate(bs[i]) > f.evaluate(a):
@@ -80,12 +55,35 @@ def advance(bs, i, a, f1s, f2s, value, slope):
     #         value -= f.evaluate(bs[i])
     #         value += f.evaluate(a)
     #         slope -= f.slope(bs[i])
-    #         failure = j
+    #         failures.append(f)
+    #     else:
+    #         nonfailures.append(f)
     #
-    # #print("failuresaaaaaaaaa",failure)
-    # # remove the failures
-    # new_f2s = f1s[:failure + 1]
-    # new_f1s = f1s[failure + 1:]
+    # new_f2s = failures
+    # new_f1s = nonfailures
+
+    #print("failuresaaaaaaaaa",failure)
+    # remove the failures
+    #new_f2s = f1s[:failure + 1]
+    #new_f1s = f1s[failure + 1:]
+
+    # # however, we also need to remove certain issues
+    failure = -1
+    for j in range(len(f1s)):
+        f = f1s[j]
+        if bs[i] > a and f.evaluate(bs[i]) > f.evaluate(a):
+            # print("ohno",bs[i],a,f.evaluate(bs[i]),f.evaluate(a))
+            # this means f(bs[i-1])<=a<f(bs[i])
+            # so we overcounted
+            value -= f.evaluate(bs[i])
+            value += f.evaluate(a)
+            slope -= f.slope(bs[i])
+            failure = j
+
+    #print("failuresaaaaaaaaa",failure)
+    # remove the failures
+    new_f2s = f1s[:failure + 1]
+    new_f1s = f1s[failure + 1:]
 
     reasonable_output = []
     if bs[i] >= a:
@@ -96,7 +94,11 @@ def test_advance(fs,bs,a):
     A = [(max(dagger_transform(f).evaluate(a), f.minimum()[0]), f) for f in fs]
     #     # sort the function by the minimum point value
     A.sort(key=lambda x:x[0])
-    print(advance(bs, 0, a, [v for (u,v) in A], [], 0.0, 0.0))
+    funcs = [v for (u,v) in A]
+    #for f in funcs:
+    #    print(f.breakpoints, dagger_transform(f).evaluate(a), f.minimum()[0])
+    advance(bs, 0, a, funcs, [], 0.0, 0.0)
+    #print()
 
 def minimum_fix_a(fs, bs, a):
     # given a, we find for each function, which b would be the first
@@ -109,6 +111,10 @@ def minimum_fix_a(fs, bs, a):
     #    print("dagger transform evaluated on a", a, A[i][0])
     # we need the initial value and slope
     f1s = [y for (x,y) in A]
+    #for f in f1s:
+#
+    #    #print(f.breakpoints, dagger_transform(f).evaluate(a), f.minimum()[0])
+    #    #dagger_transform(f).print()
     results = advance(bs, 0, a, f1s, [], 0.0, 0.0)
 
     minv, minindex = min([(u, -v) for u, v in results])
@@ -383,7 +389,7 @@ def median_to_piecewise_linear(xs):
 
 
 def slope_to_slope_difference(slope):
-    return [slope[i] - slope[i + 1] for i in range(len(slope) - 1)]
+    return [-(slope[i] - slope[i + 1]) for i in range(len(slope) - 1)]
 
 
 def dagger_transform(f):
@@ -399,6 +405,7 @@ def dagger_transform(f):
         breakpoints = [a] + breakpoints
 
     breakpoints = [breakpoints[0] - 1.0] + breakpoints
+
     #print(breakpoints)
     i = 0
     j = len(breakpoints) - 1
@@ -426,11 +433,20 @@ def dagger_transform(f):
                 slope.append(-1.0)
             j -= 1
         else:  # a > b
-            # we need to find the correct b
-            if f.slope(breakpoints[j - 1]) != 0:
-                b = breakpoints[j - 1] + (fb - f.evaluate(breakpoints[j - 1])) / f.slope(breakpoints[j - 1])
+            # off by 1?
+            #print("oh slope",breakpoints[j], f.slope(breakpoints[j]))
+            if f.slope(breakpoints[j]) != 0:
+                #print("fa,fb",fa,fb)
+                b = breakpoints[j] + (fa - fb) / f.slope(breakpoints[j])
+                #print("b and sum",b,breakpoints[j],(fa - fb) / f.slope(breakpoints[j]))
             else:
-                b = breakpoints[j - 1]
+                b = breakpoints[j]
+            # we need to find the correct b
+            #print("oh slope",breakpoints[j-1], f.slope(breakpoints[j - 1]))
+            #if f.slope(breakpoints[j - 1]) != 0:
+            #    b = breakpoints[j - 1] + (fb - f.evaluate(breakpoints[j - 1])) / f.slope(breakpoints[j - 1])
+            #else:
+            #    b = breakpoints[j - 1]
             # compute the correct b
             if not bs:
                 start_value = b
@@ -447,8 +463,10 @@ def dagger_transform(f):
     #print(bs)
     # start_value is what happens at first point, which is the second point.
     #print("so what is the slope man", bs[1:], slope)
-    bs, delta = simplify(bs[1:],slope_to_slope_difference(slope))
 
+    #print("so what is the delta man", bs[1:], slope_to_slope_difference(slope))
+    bs, delta = simplify(bs[1:],slope_to_slope_difference(slope))
+    #print("so what is the simplified delta man", bs, delta)
     return PiecewiseLinearUnimodal(start_value, bs, delta, slope[0])
 
 
