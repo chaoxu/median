@@ -148,11 +148,11 @@ def benchmark(S, cases):
 
 
 def main():
-    S = [[6, 6, 6], [11, 11, 19], [14, 14, 6], [19, 19, 19]]
-
-    # S = [[6, 6,9,8,1924, 6], [11, 11,3,5,3,19], [14, 0,614,0,6, 6], [19, 19, 19],[19, 33, 19],[100000, 19, 19],[19, 62, 19]]
-    for i in range(10):
-        S.append(random.sample(range(0, 999999), 100))
+    #S = [[747, 446], [17, 749], [997, 312]]
+    S=[[0,1,3,4,5],[0,1,2,3,4]]
+    #S = [[6, 6,9,8,1924, 6], [11, 11,3,5,3,19], [14, 0,614,0,6, 6], [19, 19, 19],[19, 33, 19],[100000, 19, 19],[19, 62, 19]]
+    for i in range(20):
+        S.append(random.sample(range(0, 9999), 11))
     benchmark(S, [
         #['brute_force', brute_force_solution],
         ['smawk', smawk_base_solution],
@@ -162,6 +162,7 @@ def main():
         ['sklearn', sklearn_solution], # heuristics
         ['median', median_heuristic]
     ])
+    print(S)
 
 
 if __name__ == "__main__":

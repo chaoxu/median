@@ -1,3 +1,4 @@
+#monge backup
 # the idea is to implement the data structure for monge matrix
 
 from pandas import *
@@ -8,78 +9,137 @@ from bisect import bisect_left
 # we want to find two positions a and b, so sum min(f_i(a),f_i(b)) is minimized.
 
 
-def minimum_fix_a(fs, bs, a):
-    # given a, we find for each function, which b would be the first 
-    # given a picewiselinear unimodal function, find the dagger transform
-    A: list[tuple[PiecewiseLinearUnimodal, PiecewiseLinearUnimodal]]
-    A = [(dagger_transform(f), f) for f in fs]
+# we try to move to the next value
+# advance only work for entire functions
+# we try to move to the next value
+# advance only work for entire functions
+def advance(bs, i, a, f1s, f2s, value, slope):
+    # print()
+    # print("i",i)
+    # print("value",value)
+    # print("slope",slope)
+    # print("good", f1s)
+    # print("failures",f2s)
+    # print()
+    if i >= len(bs):
+        return []
+    if i==0:
+        slope = sum([f.neg_infinity_slope for f in f1s])
+    # f1s and f2s are all lists, it has the property that
 
-    # sort the function by the minimum point value
-    A.sort(key=lambda z: z[1].minimum()[0])
+    # first update the value to potentially correct one assuming no function is removed
+    if i >= 1:
+        value += (bs[i] - bs[i - 1]) * slope
+        #print("value change",(bs[i] - bs[i - 1]) * slope)
+    else:
+        value += sum([f.evaluate(bs[0]) for f in f1s])
 
-    #print("A")
-    #print(A)
-    #exit(0)
+    #print("before change value", value)
+    # then update the slope to potentially correct one
+    for f in f1s:
+        if bs[i] in f.bs_delta:
+            slope += f.bs_delta[bs[i]]
 
-    # we need the initial value and slope
 
-    value = []
 
-    current_value = sum([f.evaluate(0) for f in fs])
-    current_slope = sum([f.slope_difference(0) for f in fs])
-    p = 0
-    for i in range(len(bs)):
-        # this should be the first time!
-        while A[p][0] < bs[i]:
-            # note current slope and value is still at b[i-1]
-            # we want to remove the entire of function f!
-            current_slope -= A[p][1].slope(bs[i - 1])
-            current_value -= A[p][1].evaluate(bs[i - 1])
-            current_value += A[p][1].evaluate(a)  # what it suppose to be - actual value of f[p].evaluate(a)
-            p += 1
-        # do we get to a breakpoint!
-        current_value += current_slope * bs[i] - bs[i - 1]
-        current_slope += sum([f.slope_difference(bs[i]) for f in fs if f.is_breakpoint(bs[i])])
-        value.append(current_value)
+    # naive remove failures
+    failures = []
+    nonfailures = []
 
-    # we need to return the value, which b got the value, and FINALLY, which ones smaller than that b
-    minv, minindex = min([(value[i], i) for i in range(len(value))])
-
-    left = []
-    right = []
-    for i in range(len(A)):
-        if A[p][0] < bs[minindex]:
-            left.append(A[p][1])
+    # however, we also need to remove certain issues
+    #failure = -1
+    for j in range(len(f1s)):
+        f = f1s[j]
+        if bs[i] > a and f.evaluate(bs[i]) > f.evaluate(a):
+            # print("ohno",bs[i],a,f.evaluate(bs[i]),f.evaluate(a))
+            # this means f(bs[i-1])<=a<f(bs[i])
+            # so we overcounted
+            value -= f.evaluate(bs[i])
+            value += f.evaluate(a)
+            slope -= f.slope(bs[i])
+            failures.append(f)
         else:
-            right.append(A[p][1])
+            nonfailures.append(f)
 
-    return minv, minindex, left, right
+    new_f2s = failures
+    new_f1s = nonfailures
+
+    #print("failuresaaaaaaaaa",failure)
+    # remove the failures
+    #new_f2s = f1s[:failure + 1]
+    #new_f1s = f1s[failure + 1:]
+
+    # # however, we also need to remove certain issues
+    # failure = -1
+    # for j in range(len(f1s)):
+    #     f = f1s[j]
+    #     if bs[i] > a and f.evaluate(bs[i]) > f.evaluate(a):
+    #         # print("ohno",bs[i],a,f.evaluate(bs[i]),f.evaluate(a))
+    #         # this means f(bs[i-1])<=a<f(bs[i])
+    #         # so we overcounted
+    #         value -= f.evaluate(bs[i])
+    #         value += f.evaluate(a)
+    #         slope -= f.slope(bs[i])
+    #         failure = j
+    #
+    # #print("failuresaaaaaaaaa",failure)
+    # # remove the failures
+    # new_f2s = f1s[:failure + 1]
+    # new_f1s = f1s[failure + 1:]
+
+    reasonable_output = []
+    if bs[i] >= a:
+        reasonable_output = [(value, i)]
+    return reasonable_output+advance(bs, i + 1, a, new_f1s, new_f2s, value, slope)
+
+def test_advance(fs,bs,a):
+    A = [(max(dagger_transform(f).evaluate(a), f.minimum()[0]), f) for f in fs]
+    #     # sort the function by the minimum point value
+    A.sort(key=lambda x:x[0])
+    print(advance(bs, 0, a, [v for (u,v) in A], [], 0.0, 0.0))
+
+def minimum_fix_a(fs, bs, a):
+    # given a, we find for each function, which b would be the first
+    # given a picewiselinear unimodal function, find the dagger transform
+    A: list[tuple[float, PiecewiseLinearUnimodal]]
+    A = [(max(dagger_transform(f).evaluate(a), f.minimum()[0]), f) for f in fs]
+    # sort the function by the minimum point value
+    A.sort(key=lambda x:x[0])
+    #for i in range(len(fs)):
+    #    print("dagger transform evaluated on a", a, A[i][0])
+    # we need the initial value and slope
+    f1s = [y for (x,y) in A]
+    results = advance(bs, 0, a, f1s, [], 0.0, 0.0)
+
+    minv, minindex = min([(u, -v) for u, v in results])
+
+    return minv, bs[-minindex]
 
 
 # should return the optimum value with elements in as and bs
-def optimum(fs, a_s, bs):
-    # base case, when a_s is too small. 
-    if len(a_s) <= 2:
-        result = []
-        for i in range(len(a_s)):
-            mvi, mbi, _, _ = minimum_fix_a(fs, bs, a_s[i])
-            result.append((mvi, a_s[i], mbi))
-        return min(result)
-
-    # the idea is to do this recursive approach
-    ma = a_s[len(a_s) / 2]
-    mv, mb, left, right = minimum_fix_a(fs, bs, ma)
-
-    f_left = SumOfPiecewiseLinearUnimodal(left)
-    f_right = SumOfPiecewiseLinearUnimodal(right)
-
-    left_a_s = [x for x in a_s if x in f_left.bs and x<len(a_s) / 2]
-    right_a_s = [x for x in a_s if x in f_right.bs and x>len(a_s) / 2]
-
-    left_bs = [x for x in bs if x in f_left.bs and x<=mb]
-    right_bs = [x for x in bs if x in f_right.bs and x>=mb]
-
-    return min([(mv, ma, mb), optimum(left, left_a_s, left_bs), optimum(right, right_a_s, right_bs)])
+# def optimum(fs, a_s, bs):
+#     # base case, when a_s is too small.
+#     if len(a_s) <= 2:
+#         result = []
+#         for i in range(len(a_s)):
+#             mvi, mbi, _, _ = minimum_fix_a(fs, bs, a_s[i])
+#             result.append((mvi, a_s[i], mbi))
+#         return min(result)
+#
+#     # the idea is to do this recursive approach
+#     ma = a_s[len(a_s) / 2]
+#     mv, mb, left, right = minimum_fix_a(fs, bs, ma)
+#
+#     f_left = SumOfPiecewiseLinearUnimodal(left)
+#     f_right = SumOfPiecewiseLinearUnimodal(right)
+#
+#     left_a_s = [x for x in a_s if x in f_left.bs and x<len(a_s) / 2]
+#     right_a_s = [x for x in a_s if x in f_right.bs and x>len(a_s) / 2]
+#
+#     left_bs = [x for x in bs if x in f_left.bs and x<=mb]
+#     right_bs = [x for x in bs if x in f_right.bs and x>=mb]
+#
+#     return min([(mv, ma, mb), optimum(left, left_a_s, left_bs), optimum(right, right_a_s, right_bs)])
 
 class SumOfPiecewiseLinearUnimodal:
     # list of functions
@@ -112,25 +172,49 @@ class SumOfPiecewiseLinearUnimodal:
         self.bs = sorted(list(breakpoints.keys()))
 
     def optimum(self, a_s, bs):
+        #print("running optimum!",a_s,bs)
         # base case, when a_s is too small.
         if len(a_s) <= 1:
             result = [(float('inf'), 0, 0)] # make sure something reasonble when empty
             for i in range(len(a_s)):
-                mvi, mbi, _, _ = self.naive_minimum_fix_a(bs, a_s[i])
+                mvi, mbi = minimum_fix_a(self.fs, bs, a_s[i])
+                #mvi, mbi = self.naive_minimum_fix_a(bs, a_s[i])
+
+                #assert (mvi == mvi2)
+                #assert (mbi == mbi2)
                 result.append((mvi, a_s[i], mbi))
             return min(result)
 
         # the idea is to do this recursive approach
         mid = len(a_s) // 2
         ma = a_s[mid]
-        mv, mb, left, right = self.naive_minimum_fix_a(bs, ma)
+        mv, mb = minimum_fix_a(self.fs, bs, ma)
+        #mv, mb = self.naive_minimum_fix_a(bs, ma)
+        #if (mv != mv2 or mb != mb2):
+        #    print("different:",mv,mv2,mb,mb2)
+        #    print(self.fs)
+        #    print("bs",bs)
+        #    print("a",ma)
+        left = []
+        right = []
+        for f in self.fs:
+            if f.evaluate(ma) <= f.evaluate(mb):
+                left.append(f)
+            else:
+                right.append(f)
 
+        #print(left, left2)
+        #print(right, right2)
         # two cases, in the left, we still need to show what to do with right functions
-
+        new_left = left
+        new_right = right
         if right:
-            left.append(SumOfPiecewiseLinearUnimodal(right).flattern())
+            new_left = left+[SumOfPiecewiseLinearUnimodal(right).flattern()]
         if left:
-            right.append(SumOfPiecewiseLinearUnimodal(left).flattern())
+            new_right = right+[SumOfPiecewiseLinearUnimodal(left).flattern()]
+
+        right = new_right
+        left = new_left
 
         # in recursion, left need to add an additional linear function
         cases = [(mv, ma, mb)]
@@ -138,13 +222,13 @@ class SumOfPiecewiseLinearUnimodal:
             f_left = SumOfPiecewiseLinearUnimodal(left)
             left_a_s = [x for x in a_s if x in f_left.bs and x < a_s[mid]]
             left_bs = [x for x in bs if x in f_left.bs and x <= mb]
-            cases.append(f_left.optimum(left_a_s, left_bs))
+            cases.append(f_left.optimum(left_a_s, bs))
         # what about right?
         if right:
             f_right = SumOfPiecewiseLinearUnimodal(right)
             right_a_s = [x for x in a_s if x in f_right.bs and x > a_s[mid]]
             right_bs = [x for x in bs if x in f_right.bs and x >= mb]
-            cases.append(f_right.optimum(right_a_s, right_bs))
+            cases.append(f_right.optimum(right_a_s, bs))
         return min(cases)
 
     def naive_optimum(self, a_s, bs):
@@ -159,6 +243,8 @@ class SumOfPiecewiseLinearUnimodal:
         return minimum, ma, mb
 
     def naive_minimum_fix_a(self, bs, a):
+        #print("naive_fix",a)
+        #self.print_table()
         minv = self.min_evaluate(a, a)
         minindex = a
         for b in bs:
@@ -166,14 +252,8 @@ class SumOfPiecewiseLinearUnimodal:
                 if self.min_evaluate(a, b)<=minv:
                     minv = min(self.min_evaluate(a, b),minv)
                     minindex = b
-        left = []
-        right = []
-        for f in self.fs:
-            if f.evaluate(a) <= f.evaluate(minindex):
-                left.append(f)
-            else:
-                right.append(f)
-        return minv, minindex, left, right
+        #print(minv, minindex)
+        return minv, minindex
 
     def min_evaluate(self, x, y):
         return sum([min(f.evaluate(x),f.evaluate(y)) for f in self.fs])
@@ -193,7 +273,7 @@ class SumOfPiecewiseLinearUnimodal:
         print("breakpoints", self.bs)
 
     def print_table(self):
-        print(DataFrame([[self.evaluate(a,b) for b in self.bs] for a in self.bs]))
+        print(DataFrame([[self.min_evaluate(a,b) for b in self.bs] for a in self.bs]))
 
 
 class PiecewiseLinearUnimodal:
@@ -207,7 +287,8 @@ class PiecewiseLinearUnimodal:
         for i in range(len(bs)):
             self.bs_delta[bs[i]] = delta[i]
 
-
+    def is_breakpoint(self, b):
+        return b in self.bs_delta
     def slope_difference(self, x):
         if x in self.breakpoints:
             return self.delta[self.breakpoints.index(x)]
@@ -311,43 +392,76 @@ def dagger_transform(f):
     # we should always make sure we start with a
     fa = f.evaluate(f.breakpoints[0])
     fb = f.evaluate(f.breakpoints[-1])
-
+    #print(breakpoints)
     if fa < fb:
         # compute the correct a
-        a = (f.start_value - fb)/f.neg_infinity_slope + f.breakpoints[0]
+        a = f.breakpoints[0]-(f.start_value - fb)/f.neg_infinity_slope
         breakpoints = [a] + breakpoints
 
     breakpoints = [breakpoints[0] - 1.0] + breakpoints
+    #print(breakpoints)
     i = 0
     j = len(breakpoints) - 1
-    print(i, j)
+    #print(i, j)
     bs = []
     slope = []
     while i != j:
         fa = f.evaluate(breakpoints[i])
         fb = f.evaluate(breakpoints[j])
 
-        print("a,b,f(a),f(b):",i,j,fa,fb)
+        #print("a,b,f(a),f(b):",i,j,breakpoints[i],breakpoints[j],fa,fb)
         if fa <= fb:
             # we need to find the correct a
-            a = breakpoints[i - 1] + (fb - f.evaluate(breakpoints[i - 1])) / f.slope(breakpoints[i - 1])
+            if f.slope(breakpoints[i - 1])!=0:
+                a = breakpoints[i - 1] + (fb - f.evaluate(breakpoints[i - 1])) / f.slope(breakpoints[i - 1])
+            else:
+                a = breakpoints[i - 1]
+            if not bs:
+                start_value = breakpoints[j]
             # compute the correct a
             bs.append(a)
-            slope.append(f.slope(a) / f.slope(breakpoints[j - 1]))
+            if f.slope(breakpoints[j - 1]) != 0:
+                slope.append(f.slope(a)/f.slope(breakpoints[j - 1]))
+            else:
+                slope.append(-1.0)
             j -= 1
         else:  # a > b
             # we need to find the correct b
-            b = breakpoints[j - 1] + (fb - f.evaluate(breakpoints[j - 1])) / f.slope(breakpoints[j - 1])
+            if f.slope(breakpoints[j - 1]) != 0:
+                b = breakpoints[j - 1] + (fb - f.evaluate(breakpoints[j - 1])) / f.slope(breakpoints[j - 1])
+            else:
+                b = breakpoints[j - 1]
             # compute the correct b
+            if not bs:
+                start_value = b
             bs.append(breakpoints[i])
-            slope.append(f.slope(breakpoints[i]) / f.slope(b))
+
+            if f.slope(b)!=0:
+                slope.append(f.slope(breakpoints[i])/f.slope(b))
+            else:
+                slope.append(-1.0)
             i += 1
-        print("new bs",bs)
-        print("new slope",slope)
+        #("new bs",bs)
+        #print("new slope",slope)
     #print("BS")
     #print(bs)
-    # start_value is what happens at first point, which is the second point. 
-    return PiecewiseLinearUnimodal(f.start_value, bs[1:], slope_to_slope_difference(slope), slope[0])
+    # start_value is what happens at first point, which is the second point.
+    #print("so what is the slope man", bs[1:], slope)
+    bs, delta = simplify(bs[1:],slope_to_slope_difference(slope))
+
+    return PiecewiseLinearUnimodal(start_value, bs, delta, slope[0])
+
+
+# the problem is we have to handle the zero case:
+
+def simplify(bs,delta):
+    new_bs=[bs[0]]
+    new_delta=[delta[0]]
+    for i in range(1,len(bs)):
+        if delta[i] != 0:
+            new_bs.append(bs[i])
+            new_delta.append(delta[i])
+    return new_bs, new_delta
 
 
 def median_func(list_of_medians):

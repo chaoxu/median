@@ -3,13 +3,50 @@ from monge import *
 ### test
 # breakpoints [6,11,14,19]
 
-f = median_to_piecewise_linear([0,1,2])
-df = dagger_transform(f)
-df.print()
-#S = [[6, 6,9], [11, 11,3, 19], [14, 614, 6], [19, 19, 19],[19, 33, 19],[100000, 19, 19],[19, 62, 19]]
+
+
+#S = [[1,3,9]]
+#, [14, 614, 6], [19, 19, 19],[19, 33, 19],[100000, 19, 19],[19, 62, 19]]
+
+
+S = [[0,1,3,4,5],[0,1,2,3,4]]
+#median_solver(S)
+fs = median_func(S)
+fs.print_table()
+fs.optimum(fs.bs,fs.bs)
+
+print(minimum_fix_a(fs.fs, fs.bs, 2))
+print(fs.naive_minimum_fix_a(fs.bs, 2))
+
+#for a in range(6):
+#    print()
+
+#mv, mb = minimum_fix_a(fs.fs, fs.bs, 747)
+#mv2, mb2 = fs.naive_minimum_fix_a(fs.bs, 747)
+#print(mv,mb)
+#print(mv2,mb2)
+
+#print(fs.bs)
+
+
+#df = dagger_transform(f)
+#f.print()
+#print("")
+#df.print()
+#exit(0)
+
+#f = median_to_piecewise_linear([1,3,9])
+#test_advance([f],f.breakpoints,3)
 #f = median_func(S)
-#print(f.naive_optimum(f.bs,f.bs))
-#print(f.optimum(f.bs,f.bs))
+#f.print_table()
+#print("baseline")
+
+
+#f.fs[0].print()
+#print(f.naive_minimum_fix_a(f.bs,9))
+
+#print("testing")
+#print(minimum_fix_a(f.fs,f.bs,9))
 
 #g = f.flattern()
 #for x in f.bs:
