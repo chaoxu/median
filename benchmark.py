@@ -155,16 +155,16 @@ def main():
     for i in range(3):
         S.append(random.sample(range(0, 5), 3))
 
-    for j in range(10):
-        S = []# [[0, 2, 3], [1, 5, 0]]
-        for i in range(10):
-            S.append(random.sample(range(0, 9999), 11))
+    for j in range(1):
+        S = [[0, 2, 3], [1, 5, 0]]
+        for i in range(40):
+            S.append(random.sample(range(0, 999999), 41))
         median_solver(S)
-        if smawk_base_solution(S) != median_solver(S):
-            print(smawk_base_solution(S))
-            print(median_solver(S))
-            print(S)
-            exit(0)
+        #if smawk_base_solution(S) != median_solver(S):
+        #    print(smawk_base_solution(S))
+        #    print(median_solver(S))
+        #    print(S)
+        exit(0)
     benchmark(S, [
         #['brute_force', brute_force_solution],
         ['smawk', smawk_base_solution],

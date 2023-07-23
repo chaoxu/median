@@ -18,7 +18,7 @@ def minimum_fix_a(fs, bs, a):
     # given a, we find for each function, which b would be the first
     # given a picewiselinear unimodal function, find the dagger transform
     A: list[tuple[float, PiecewiseLinearUnimodal]]
-    A = [(max(dagger_transform(f).evaluate(a), f.minimum()[0]), f) for f in fs]
+    A = [(max(f.dagger().evaluate(a), f.minimum()[0]), f) for f in fs]
     # sort the function by the minimum point value
     A.sort(key=lambda x:x[0])
     #for i in range(len(fs)):
@@ -81,12 +81,11 @@ class SumOfPiecewiseLinearUnimodal:
     # list of breakpoints
     def __init__(self, fs):
         self.fs = fs
+        self.bs_set = None
         self.compute_breakpoints()
         self.neg_infinity_slope = sum([f.neg_infinity_slope for f in fs])
         self.cache_evaluate = dict()
         self.start_value = self.evaluate(self.bs[0])
-        self.bs_set = None
-
 
     # return a PiecewiseLinearUnimodal function
     def flattern(self):
@@ -147,14 +146,14 @@ class SumOfPiecewiseLinearUnimodal:
         cases = [(mv, ma, mb)]
         if left:
             f_left = SumOfPiecewiseLinearUnimodal(left)
-            left_a_s = [x for x in a_s if x in f_left.bs and x < a_s[mid]]
-            left_bs = [x for x in bs if x in f_left.bs and x <= mb]
+            left_a_s = [x for x in a_s if x in f_left.bs_set and x < a_s[mid]]
+            left_bs = [x for x in bs if x in f_left.bs_set and x <= mb]
             cases.append(f_left.optimum(left_a_s, left_bs))
         # what about right?
         if right:
             f_right = SumOfPiecewiseLinearUnimodal(right)
-            right_a_s = [x for x in a_s if x in f_right.bs and x > a_s[mid]]
-            right_bs = [x for x in bs if x in f_right.bs and x >= mb]
+            right_a_s = [x for x in a_s if x in f_right.bs_set and x > a_s[mid]]
+            right_bs = [x for x in bs if x in f_right.bs_set and x >= mb]
             cases.append(f_right.optimum(right_a_s, bs))
         return min(cases)
 
@@ -224,7 +223,7 @@ class PiecewiseLinearUnimodal:
         # self.bound = None
     # find the smallest breakpoint
     def prev_index(self, x):
-        return np.searchsorted(self.lookup,x,side='left')
+        return bisect_left(self.breakpoints,x) #np.searchsorted(self.lookup, x, side='left')
 
     def __build_values(self):
         bs = self.breakpoints
@@ -271,11 +270,11 @@ class PiecewiseLinearUnimodal:
     def slope(self, x):
         if x in self.bs_index:
             return self.slope_array[self.bs_index[x]+1]
-        t = self.prev_index(x)-1
+        t = self.prev_index(x) - 1
         return self.slope_array[t + 1]
         #return self.slope_known_prev_index(t)
     def slope_known_prev_index(self,t):
-        return self.slope_array[t+1]
+        return self.slope_array[t + 1]
     def slopes(self):
         slopes = [self.neg_infinity_slope]
         for d in self.delta:
@@ -332,7 +331,6 @@ def median_to_piecewise_linear(xs):
 def slope_to_slope_difference(slope):
     return [-(slope[i] - slope[i + 1]) for i in range(len(slope) - 1)]
 
-
 def dagger_transform(f):
     # the idea is we start with two lists and converge to the middle
     breakpoints = list(f.breakpoints)
@@ -371,6 +369,10 @@ def dagger_transform(f):
             # compute the correct a
             bs.append(a)
             if f.slope(breakpoints[j - 1]) != 0:
+                t = f.prev_index(a) - 1
+                if t!= i-3:
+                     d("OMG", t, i-3, a, f.breakpoints)
+                #slope.append(f.slope_known_prev_index(i-1) / f.slope(breakpoints[j - 1]))
                 slope.append(f.slope(a)/f.slope(breakpoints[j - 1]))
             else:
                 slope.append(-1.0)
